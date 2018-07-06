@@ -19,14 +19,16 @@ namespace TodoApi.Web
     {
         public Startup(IConfiguration configuration)
         {
-            Configuration = configuration;
+            this._config = configuration;
         }
 
-        public IConfiguration Configuration { get; }
+        public IConfiguration _config;
 
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
+            services.AddSingleton(_config);
+
             var connection = @"Server=(localdb)\mssqllocaldb;Database=TodoApp;Trusted_Connection=True;";
             services.AddDbContext<TodoContext>(options => options.UseSqlServer(connection));
 
@@ -47,12 +49,18 @@ namespace TodoApi.Web
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        public void Configure(IApplicationBuilder app, IHostingEnvironment env)
+        public void Configure(
+            IApplicationBuilder app, 
+            IHostingEnvironment env,
+            ILoggerFactory loggerFactory)
         {
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
             }
+
+            loggerFactory.AddConsole(_config.GetSection("Logging"));
+            loggerFactory.AddDebug();
 
             app.UseAuthentication();
 
