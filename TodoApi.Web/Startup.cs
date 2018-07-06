@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
@@ -10,6 +12,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 using TodoApi.Data;
 using TodoApi.Data.Models;
 
@@ -19,15 +22,15 @@ namespace TodoApi.Web
     {
         public Startup(IConfiguration configuration)
         {
-            this._config = configuration;
+            this.Configuration = configuration;
         }
 
-        public IConfiguration _config;
+        public IConfiguration Configuration { get; }
 
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddSingleton(_config);
+            services.AddSingleton<IConfiguration>(Configuration);
 
             var connection = @"Server=(localdb)\mssqllocaldb;Database=TodoApp;Trusted_Connection=True;";
             services.AddDbContext<TodoContext>(options => options.UseSqlServer(connection));
@@ -45,6 +48,24 @@ namespace TodoApi.Web
                 };
             });
 
+            services.AddAuthentication(options =>
+            {
+                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+            }).AddJwtBearer(cfg =>
+            {
+                cfg.RequireHttpsMetadata = false;
+                cfg.SaveToken = true;
+                cfg.TokenValidationParameters = new TokenValidationParameters()
+                {
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Configuration["Tokens:Key"])),
+                    ValidateAudience = false,
+                    ValidateIssuer = false,
+                    ValidateLifetime = false,
+                    ValidateIssuerSigningKey = true
+                };
+            });
+
             services.AddMvc();
         }
 
@@ -59,7 +80,7 @@ namespace TodoApi.Web
                 app.UseDeveloperExceptionPage();
             }
 
-            loggerFactory.AddConsole(_config.GetSection("Logging"));
+            loggerFactory.AddConsole(Configuration.GetSection("Logging"));
             loggerFactory.AddDebug();
 
             app.UseAuthentication();
